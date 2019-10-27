@@ -1,4 +1,4 @@
-import React, { ReactPropTypes } from 'react';
+import React from 'react';
 import Login from './components/Login';
 
 import ResponsiveContainer from './components/ResponsiveContainer';

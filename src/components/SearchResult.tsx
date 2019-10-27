@@ -1,5 +1,5 @@
 import React from 'react';
-import _ from 'lodash';
+
 import {
   Button,
   Grid,
@@ -12,20 +12,34 @@ import {
 } from 'semantic-ui-react';
 import axios, { AxiosResponse } from 'axios';
 
+type Artist = {
+  id: string,
+  name: string
+}
+
+type Track = {
+  artists: Artist[],
+  href: string,
+  id: string,
+  is_playable: boolean,
+  external_urls: { spofify: string }
+  name: string
+}
+
 type Playlist = {
-    collaborative: boolean;
-    external_urls: { spotify: string };
-    href: string;
-    id: string;
-    images: [];
-    name: string;
-    owner: { display_name: string; external_urls: {}; href: string; id: string; type: string };
-    primary_color?: string;
-    public: boolean;
-    snapshot_id: string;
-    tracks: { href: string; total: number };
-    type: string;
-    uri: string;
+  collaborative: boolean;
+  external_urls: { spotify: string };
+  href: string;
+  id: string;
+  images: [];
+  name: string;
+  owner: { display_name: string; external_urls: {}; href: string; id: string; type: string };
+  primary_color?: string;
+  public: boolean;
+  snapshot_id: string;
+  tracks: { href: string; total: number };
+  type: string;
+  uri: string;
 }
 
 const api_url: string = process.env.REACT_APP_SPOTIFY_API_URL as string | '';
@@ -57,7 +71,7 @@ const style = {
 type OwnState = {
   isLoading: boolean;
   playlists: Playlist[];
-  results: any[],
+  results: Track[],
   selectedPlaylist?: string;
 }
 
@@ -69,21 +83,27 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
   constructor(props: OwnProps, state: OwnState) {
     super(props, state);
     this.handlePlaylistChange = this.handlePlaylistChange.bind(this);
-}
+  }
 
-private handlePlaylistChange(event: any) {
+  private handlePlaylistChange(event: any) {
     event && event.target && this.setState({ selectedPlaylist: event.target.value });
-}
+  }
 
-private fetchTracks() {
+  private fetchTracks() {
+    for (const playlist of this.state.playlists) {
+      
+      axios.get(playlist.tracks.href).then((response: AxiosResponse) => {
+          console.log(response.data.items);
+        });
+    }
+  }
 
-}
-
-componentDidMount() {
+  componentDidMount() {
     axios.get(`${api_url}/me/playlists`).then((response: AxiosResponse) => {
-        this.setState({ playlists: response.data.items });
+      this.setState({ playlists: response.data.items });
+      this.fetchTracks();
     });
-}
+  }
 
   handleResultSelect() {
 
@@ -104,9 +124,8 @@ componentDidMount() {
         <Grid.Row>
 
           <Input
-            action={<Dropdown button basic floating options={playlists.map(p => 
-             {return {key: p.id, text: p.name, value: p.id}}
-            ).concat({key: 'all', text: 'All', value: 'all'})} defaultValue='all' />}
+            action={<Dropdown button basic floating options={playlists.map(p => { return { key: p.id, text: p.name, value: p.id } }
+            ).concat({ key: 'all', text: 'All', value: 'all' })} defaultValue='all' />}
             placeholder='Enter the lyrics...'
           />
         </Grid.Row>
@@ -114,60 +133,27 @@ componentDidMount() {
       </Grid>
 
 
-      <Header as='h3' content='Song suggestions' style={style.h3} textAlign='center' />
+      {this.state.results && this.state.results.length > 0 ? <Header as='h3' content='Song suggestions' style={style.h3} textAlign='center' />: <Grid.Row style={{marginBottom: '26%'}}>&nbsp;</Grid.Row>}
       <Grid textAlign='center'>
         <Item.Group divided>
-          <Item>
-            <Item.Image src='/musixmatch.png' />
-            <Item.Content>
-              <Item.Header>Song name</Item.Header>
-              <Item.Meta>
-                <span>Band</span>
-              </Item.Meta>
-              <Item.Description>Some lyrics here?Some lyrics here?Some lyrics here?Some lyrics here?Some lyrics here?</Item.Description>
-              <Item.Extra>
-                <Button primary floated='right' as='a' href='#' target="_blank">
-                  Listen on Spotify
-            <Icon name='external' style={style.floatedRight} />
-
-                </Button>
-              </Item.Extra>
-            </Item.Content>
-          </Item>
-          <Item>
-            <Item.Image src='/musixmatch.png' />
-            <Item.Content>
-              <Item.Header>Song name</Item.Header>
-              <Item.Meta>
-                <span>Band</span>
-              </Item.Meta>
-              <Item.Description>Some lyrics here?Some lyrics here?Some lyrics here?Some lyrics here?Some lyrics here?</Item.Description>
-              <Item.Extra>
-                <Button primary floated='right' as='a' href='#' target="_blank">
-                  Listen on Spotify
-            <Icon name='external' style={style.floatedRight} />
-
-                </Button>
-              </Item.Extra>
-            </Item.Content>
-          </Item>
-          <Item>
-            <Item.Image src='/musixmatch.png' />
-            <Item.Content>
-              <Item.Header>Song name</Item.Header>
-              <Item.Meta>
-                <span>Band</span>
-              </Item.Meta>
-              <Item.Description>Some lyrics here?Some lyrics here?Some lyrics here?Some lyrics here?Some lyrics here?</Item.Description>
-              <Item.Extra>
-                <Button primary floated='right' as='a' href='#' target="_blank">
-                  Listen on Spotify
-            <Icon name='external' style={style.floatedRight} />
-
-                </Button>
-              </Item.Extra>
-            </Item.Content>
-          </Item>
+          {results.map(track => {
+            return <Item>
+              <Item.Image src='/musixmatch.png' />
+              <Item.Content>
+                <Item.Header>${track.name}</Item.Header>
+                <Item.Meta>
+                  <span>${track.artists.map(artist => artist.name).concat(',')}</span>
+                </Item.Meta>
+                <Item.Description>Lyrics go here</Item.Description>
+                <Item.Extra>
+                  {track.is_playable ? <Button primary floated='right' as='a' href={track.external_urls.spofify} target="_blank">
+                    Listen on Spotify
+   <Icon name='external' style={style.floatedRight} />
+                  </Button> : null}
+                </Item.Extra>
+              </Item.Content>
+            </Item>
+          })}
         </Item.Group>
 
       </Grid>
