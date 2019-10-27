@@ -10,13 +10,25 @@ import {
   Dropdown,
 
 } from 'semantic-ui-react';
+import axios, { AxiosResponse } from 'axios';
 
-const options = [
-  { key: 'all', text: 'All', value: 'all' },
-  { key: '1', text: 'Playlist 1', value: '1' },
-  { key: '2', text: 'Playlist 2', value: '2' },
-];
+type Playlist = {
+    collaborative: boolean;
+    external_urls: { spotify: string };
+    href: string;
+    id: string;
+    images: [];
+    name: string;
+    owner: { display_name: string; external_urls: {}; href: string; id: string; type: string };
+    primary_color?: string;
+    public: boolean;
+    snapshot_id: string;
+    tracks: { href: string; total: number };
+    type: string;
+    uri: string;
+}
 
+const api_url: string = process.env.REACT_APP_SPOTIFY_API_URL as string | '';
 
 const style = {
   h1: {
@@ -44,14 +56,34 @@ const style = {
 
 type OwnState = {
   isLoading: boolean;
-  value: any;
-  results: string[];
+  playlists: Playlist[];
+  results: any[],
+  selectedPlaylist?: string;
 }
 
 type OwnProps = {}
 
 class SearchResult extends React.Component<OwnProps, OwnState>{
-  state = { isLoading: false, results: [], value: '' };
+  state: OwnState = { isLoading: false, playlists: [], results: [], selectedPlaylist: '' };
+
+  constructor(props: OwnProps, state: OwnState) {
+    super(props, state);
+    this.handlePlaylistChange = this.handlePlaylistChange.bind(this);
+}
+
+private handlePlaylistChange(event: any) {
+    event && event.target && this.setState({ selectedPlaylist: event.target.value });
+}
+
+private fetchTracks() {
+
+}
+
+componentDidMount() {
+    axios.get(`${api_url}/me/playlists`).then((response: AxiosResponse) => {
+        this.setState({ playlists: response.data.items });
+    });
+}
 
   handleResultSelect() {
 
@@ -62,7 +94,7 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
   }
 
   render() {
-    const { isLoading, value, results } = this.state
+    const { isLoading, selectedPlaylist, results, playlists } = this.state
 
     return <React.Fragment>
       <Grid columns={1} container textAlign='center'>
@@ -72,12 +104,15 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
         <Grid.Row>
 
           <Input
-            action={<Dropdown button basic floating options={options} defaultValue='all' />}
+            action={<Dropdown button basic floating options={playlists.map(p => 
+             {return {key: p.id, text: p.name, value: p.id}}
+            ).concat({key: 'all', text: 'All', value: 'all'})} defaultValue='all' />}
             placeholder='Enter the lyrics...'
           />
         </Grid.Row>
-        <Grid.Row>  <Button primary >Search</Button></Grid.Row>
+        <Grid.Row><Button primary >Search</Button></Grid.Row>
       </Grid>
+
 
       <Header as='h3' content='Song suggestions' style={style.h3} textAlign='center' />
       <Grid textAlign='center'>
