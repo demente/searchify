@@ -8,6 +8,7 @@ import {
   Item,
   Input,
   Dropdown,
+  DropdownProps,
 
 } from 'semantic-ui-react';
 import axios, { AxiosResponse } from 'axios';
@@ -17,13 +18,19 @@ type Artist = {
   name: string
 }
 
+
+type TrackResponse = {
+  track: Track;
+}
+
 type Track = {
   artists: Artist[],
   href: string,
   id: string,
   is_playable: boolean,
-  external_urls: { spofify: string }
-  name: string
+  external_urls: { spotify: string }
+  name: string,
+  album: {images: {height: number, url: string}[]}
 }
 
 type Playlist = {
@@ -38,6 +45,7 @@ type Playlist = {
   public: boolean;
   snapshot_id: string;
   tracks: { href: string; total: number };
+  fetched_tracks?: TrackResponse[],
   type: string;
   uri: string;
 }
@@ -69,32 +77,32 @@ const style = {
 };
 
 type OwnState = {
-  isLoading: boolean;
   playlists: Playlist[];
   results: Track[],
-  selectedPlaylist?: string;
+  selectedPlaylist?: Playlist;
 }
 
 type OwnProps = {}
 
 class SearchResult extends React.Component<OwnProps, OwnState>{
-  state: OwnState = { isLoading: false, playlists: [], results: [], selectedPlaylist: '' };
+  state: OwnState = { playlists: [], results: [] };
 
   constructor(props: OwnProps, state: OwnState) {
     super(props, state);
     this.handlePlaylistChange = this.handlePlaylistChange.bind(this);
+    this.handleInputChange = this.handleInputChange.bind(this);
+    this.handleSearchClicked = this.handleSearchClicked.bind(this);
   }
 
-  private handlePlaylistChange(event: any) {
-    event && event.target && this.setState({ selectedPlaylist: event.target.value });
+  private handlePlaylistChange(event: React.SyntheticEvent<HTMLElement, Event>, data: DropdownProps) {
+    data && data.value && this.setState({ selectedPlaylist: this.state.playlists.find(playlist => playlist.id === data.value) });
   }
 
   private fetchTracks() {
     for (const playlist of this.state.playlists) {
-      
       axios.get(playlist.tracks.href).then((response: AxiosResponse) => {
-          console.log(response.data.items);
-        });
+        playlist.fetched_tracks = response.data.items;
+      });
     }
   }
 
@@ -105,16 +113,18 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
     });
   }
 
-  handleResultSelect() {
-
+  private handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    console.log(e.target.value);
   }
 
-  handleSearchChange() {
-
+ private handleSearchClicked(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
+    const { selectedPlaylist } = this.state;
+    console.log(selectedPlaylist);
+    this.setState({ results: selectedPlaylist && selectedPlaylist.fetched_tracks ? selectedPlaylist.fetched_tracks.map(track => track.track) : [] })
   }
 
   render() {
-    const { isLoading, selectedPlaylist, results, playlists } = this.state
+    const { results, playlists } = this.state
 
     return <React.Fragment>
       <Grid columns={1} container textAlign='center'>
@@ -123,33 +133,33 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
         </Grid.Row>
         <Grid.Row>
 
-          <Input
-            action={<Dropdown button basic floating options={playlists.map(p => { return { key: p.id, text: p.name, value: p.id } }
+          <Input onChange={this.handleInputChange}
+            action={<Dropdown onChange={this.handlePlaylistChange} button basic floating options={playlists.map(p => { return { key: p.id, text: p.name, value: p.id } }
             ).concat({ key: 'all', text: 'All', value: 'all' })} defaultValue='all' />}
             placeholder='Enter the lyrics...'
           />
         </Grid.Row>
-        <Grid.Row><Button primary >Search</Button></Grid.Row>
+        <Grid.Row><Button primary onClick={this.handleSearchClicked}>Search</Button></Grid.Row>
       </Grid>
 
 
-      {this.state.results && this.state.results.length > 0 ? <Header as='h3' content='Song suggestions' style={style.h3} textAlign='center' />: <Grid.Row style={{marginBottom: '26%'}}>&nbsp;</Grid.Row>}
+      {this.state.results && this.state.results.length > 0 ? <Header as='h3' content='Song suggestions' style={style.h3} textAlign='center' /> : <Grid.Row style={{ marginBottom: '26%' }}>&nbsp;</Grid.Row>}
       <Grid textAlign='center'>
         <Item.Group divided>
           {results.map(track => {
-            return <Item>
-              <Item.Image src='/musixmatch.png' />
+            return <Item key={track.id}>
+              <Item.Image size="tiny" src={track.album.images.find(image => image.height === 64)!.url} />
               <Item.Content>
-                <Item.Header>${track.name}</Item.Header>
+                <Item.Header>{track.name}</Item.Header>
                 <Item.Meta>
-                  <span>${track.artists.map(artist => artist.name).concat(',')}</span>
+                  <span>{track.artists.map(artist => artist.name).join(', ')}</span>
                 </Item.Meta>
                 <Item.Description>Lyrics go here</Item.Description>
                 <Item.Extra>
-                  {track.is_playable ? <Button primary floated='right' as='a' href={track.external_urls.spofify} target="_blank">
+                   <Button primary floated='right' as='a' href={track.external_urls.spotify} target="_blank">
                     Listen on Spotify
    <Icon name='external' style={style.floatedRight} />
-                  </Button> : null}
+                  </Button> 
                 </Item.Extra>
               </Item.Content>
             </Item>
