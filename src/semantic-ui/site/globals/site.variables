@@ -1,0 +1,36 @@
+/*******************************
+     User Global Variables
+*******************************/
+
+/*
+@primaryColor: #1b5e20;
+@secondaryColor: #f57f17;
+@pageBackground: #212121;
+
+*/
+
+@green: #1b5e20;
+@orange: #f57f17;
+@black: #212121;
+@grey: #4E575B;
+@white: #ffffff;
+
+@primaryColor: @green;
+@secondaryColor: @orange;
+
+@pageBackground: @grey;
+@highlightColor: @secondaryColor;
+
+@hoveredTextColor: @orange;
+
+@inputBackground: @grey;
+@inputColor: @textColor;
+@focusedFormBorderColor: @orange;
+
+@infoTextColor: #4E575B;
+@warningTextColor: #613A00;
+@errorTextColor: #991111;
+
+
+
+
