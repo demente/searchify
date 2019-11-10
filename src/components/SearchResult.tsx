@@ -9,6 +9,8 @@ import {
   Input,
   Dropdown,
   DropdownProps,
+  Loader
+  
 
 } from 'semantic-ui-react';
 import axios, { AxiosResponse } from 'axios';
@@ -52,7 +54,8 @@ type Track = {
   is_playable: boolean,
   external_urls: { spotify: string }
   name: string,
-  album: {images: {height: number, url: string}[]}
+  album: {images: {height: number, url: string}[]},
+  lyrics?: string
 }
 
 type Playlist = {
@@ -105,12 +108,13 @@ type OwnState = {
   results: Track[],
   selectedPlaylist?: Playlist;
   lyrics?: string;
+  isSearching: boolean;
 }
 
 type OwnProps = {}
 
 class SearchResult extends React.Component<OwnProps, OwnState>{
-  state: OwnState = { playlists: [], results: [] };
+  state: OwnState = { playlists: [], results: [], isSearching: false };
 
   constructor(props: OwnProps, state: OwnState) {
     super(props, state);
@@ -170,12 +174,10 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
        if (musixmatch_id){
           await axios.get(`${musixmatch_url}/track.lyrics.get?track_id=${musixmatch_id}&apikey=${musixmatch_api_key}`).then((response: AxiosResponse) => {
           const lyricsResponse: LyricsResponse = response.data;
-          if(this.state.lyrics && 
-            lyricsResponse.message.body.lyrics.lyrics_body.toLowerCase().indexOf(this.state.lyrics) > -1){
+          if(!this.state.lyrics || (this.state.lyrics && 
+           lyricsResponse.message.body.lyrics.lyrics_body.toLowerCase().indexOf(this.state.lyrics) > -1)){
+             track.lyrics = lyricsResponse.message.body.lyrics.lyrics_body;
            matchingTracks.push(track);
-          }
-          if(!this.state.lyrics){
-            matchingTracks.push(track);
           }
             });
         }
@@ -194,12 +196,14 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
 
  private async handleSearchClicked(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
     const { selectedPlaylist } = this.state;
+    this.setState({isSearching: true});
 
     const tracks = selectedPlaylist && selectedPlaylist.fetched_tracks ? selectedPlaylist.fetched_tracks.map(track => track.track) : [];
 
     const result = await this.fetchTracksWithLyrics(tracks);
     
     this.setState({ results: result});
+    this.setState({isSearching: false});
   }
 
   render() {
@@ -221,7 +225,7 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
         <Grid.Row><Button primary onClick={this.handleSearchClicked}>Search</Button></Grid.Row>
       </Grid>
 
-
+      {this.state.isSearching?<Grid textAlign='center'> <Loader active inline/></Grid>: null}
       {this.state.results && this.state.results.length > 0 ? <Header as='h3' content='Song suggestions' style={style.h3} textAlign='center' /> : <Grid.Row style={{ marginBottom: '26%' }}>&nbsp;</Grid.Row>}
       <Grid textAlign='center'>
         <Item.Group divided>
@@ -233,7 +237,7 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
                 <Item.Meta>
                   <span>{track.artists.map(artist => artist.name).join(', ')}</span>
                 </Item.Meta>
-                <Item.Description>Lyrics go here</Item.Description>
+                <Item.Description>{track.lyrics && track.lyrics.split ('\n').map ((item, i) => <p key={i}>{item}</p>)}</Item.Description>
                 <Item.Extra>
                    <Button primary floated='right' as='a' href={track.external_urls.spotify} target="_blank">
                     Listen on Spotify
