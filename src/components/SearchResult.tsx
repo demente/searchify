@@ -18,6 +18,28 @@ type Artist = {
   name: string
 }
 
+type MusixmatchTrackResponse = {
+  message: {
+    body: {
+      track_list: [
+        {
+          track: {has_lyrics: boolean;
+            track_id: number;}
+          }
+      ]
+    }
+  }
+}
+
+type LyricsResponse = {
+  message: {
+    body: {
+      lyrics: {
+        lyrics_body: string;
+      }
+    }
+  }
+}
 
 type TrackResponse = {
   track: Track;
@@ -51,6 +73,8 @@ type Playlist = {
 }
 
 const api_url: string = process.env.REACT_APP_SPOTIFY_API_URL as string | '';
+const musixmatch_url: string = process.env.REACT_APP_MUSIXMATCH_API_URL as string | '';
+const musixmatch_api_key: string = process.env.REACT_APP_MUSIXMATCH_ID as string | '';
 
 const style = {
   h1: {
@@ -80,6 +104,7 @@ type OwnState = {
   playlists: Playlist[];
   results: Track[],
   selectedPlaylist?: Playlist;
+  lyrics?: string;
 }
 
 type OwnProps = {}
@@ -119,7 +144,7 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
   for (const playlist of this.state.playlists) {
      if(playlist && playlist.tracks) {
        playlist.fetched_tracks = await this.fetchTracksRecursively(playlist.tracks.href);
-       } 
+      } 
     }
   }
 
@@ -133,13 +158,48 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
   }
 
   private handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    
+    this.setState({lyrics: e.target.value.toLowerCase()});
   }
 
- private handleSearchClicked(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
+  private async fetchTracksWithLyrics(tracks: Track[]): Promise<Track[]>{
+    let matchingTracks: Track[] = [];
+    for(const track of tracks ){
+      const musixmatchTrack = await this.fetchMusixmatchTrack(track);
+      if(musixmatchTrack.message.body && musixmatchTrack.message.body.track_list && musixmatchTrack.message.body.track_list[0] && musixmatchTrack.message.body.track_list[0].track.has_lyrics){
+        const musixmatch_id=  musixmatchTrack.message.body.track_list[0].track.track_id;
+       if (musixmatch_id){
+          await axios.get(`${musixmatch_url}/track.lyrics.get?track_id=${musixmatch_id}&apikey=${musixmatch_api_key}`).then((response: AxiosResponse) => {
+          const lyricsResponse: LyricsResponse = response.data;
+          if(this.state.lyrics && 
+            lyricsResponse.message.body.lyrics.lyrics_body.toLowerCase().indexOf(this.state.lyrics) > -1){
+           matchingTracks.push(track);
+          }
+          if(!this.state.lyrics){
+            matchingTracks.push(track);
+          }
+            });
+        }
+      }
+    }
+    return matchingTracks;
+    }
+
+  private async fetchMusixmatchTrack(track: Track): Promise<MusixmatchTrackResponse>{
+    const artists = track.artists.map(artist => artist.name).join(', ');
+     return axios.get(`${musixmatch_url}/track.search?q_artist=${artists}&q_track=${track.name}&apikey=${musixmatch_api_key}`).then((response: AxiosResponse) => 
+      {
+      return response.data;
+      });
+    }
+
+ private async handleSearchClicked(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
     const { selectedPlaylist } = this.state;
 
-    this.setState({ results: selectedPlaylist && selectedPlaylist.fetched_tracks ? selectedPlaylist.fetched_tracks.map(track => track.track) : [] })
+    const tracks = selectedPlaylist && selectedPlaylist.fetched_tracks ? selectedPlaylist.fetched_tracks.map(track => track.track) : [];
+
+    const result = await this.fetchTracksWithLyrics(tracks);
+    
+    this.setState({ results: result});
   }
 
   render() {
