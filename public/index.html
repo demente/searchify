@@ -7,6 +7,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#000000" />
   <meta name="description" content="Search your Spotify playlists by lyrics" />
+  <style>
+  /* no print */
+@media print {
+    body { display: none !important; }
+}
+/* no selection */
+body {
+        -moz-user-select: none;
+        -khtml-user-select: none;
+        -ms-user-select: none;
+        -webkit-user-select: none;
+        user-select: none;
+}
+</style>
 
   <!--
       manifest.json provides metadata used when your web app is installed on a
