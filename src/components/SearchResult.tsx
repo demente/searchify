@@ -34,20 +34,20 @@ type Track = {
 }
 
 type Playlist = {
-  collaborative: boolean;
-  external_urls: { spotify: string };
-  href: string;
+  collaborative?: boolean;
+  external_urls?: { spotify: string };
+  href?: string;
   id: string;
-  images: [];
+  images?: [];
   name: string;
-  owner: { display_name: string; external_urls: {}; href: string; id: string; type: string };
+  owner?: { display_name: string; external_urls: {}; href: string; id: string; type: string };
   primary_color?: string;
-  public: boolean;
-  snapshot_id: string;
-  tracks: { href: string; total: number };
+  public?: boolean;
+  snapshot_id?: string;
+  tracks?: { href: string; total: number };
   fetched_tracks?: TrackResponse[],
-  type: string;
-  uri: string;
+  type?: string;
+  uri?: string;
 }
 
 const api_url: string = process.env.REACT_APP_SPOTIFY_API_URL as string | '';
@@ -95,31 +95,50 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
   }
 
   private handlePlaylistChange(event: React.SyntheticEvent<HTMLElement, Event>, data: DropdownProps) {
-    data && data.value && this.setState({ selectedPlaylist: this.state.playlists.find(playlist => playlist.id === data.value) });
+     data && data.value && this.setState({ selectedPlaylist: this.state.playlists.find(playlist => playlist.id === data.value) });
+
   }
 
-  private fetchTracks() {
-    for (const playlist of this.state.playlists) {
-      axios.get(playlist.tracks.href).then((response: AxiosResponse) => {
-        playlist.fetched_tracks = response.data.items;
-      });
+  private async fetchTracksRecursively(next: string):Promise< TrackResponse[]> {
+   return axios.get(next).then(
+        async (response: AxiosResponse) => {
+          const current = response.data.items;
+          let nextTracks: any[] = [];
+
+          if(response.data.next){
+            nextTracks = await this.fetchTracksRecursively(response.data.next);
+          }
+          
+          return current.concat(nextTracks);
+        }
+      );
+    
+  }
+
+  private async fetchTracks() {
+  for (const playlist of this.state.playlists) {
+     if(playlist && playlist.tracks) {
+       playlist.fetched_tracks = await this.fetchTracksRecursively(playlist.tracks.href);
+       } 
     }
   }
 
   componentDidMount() {
     axios.get(`${api_url}/me/playlists`).then((response: AxiosResponse) => {
-      this.setState({ playlists: response.data.items });
+      const playlists=response.data.items.concat({id: 'all',  name:'All Saved Tracks', tracks: {href: `${api_url}/me/tracks?limit=50`}});
+
+      this.setState({ playlists });
       this.fetchTracks();
-    });
+      });
   }
 
   private handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    console.log(e.target.value);
+    
   }
 
  private handleSearchClicked(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
     const { selectedPlaylist } = this.state;
-    console.log(selectedPlaylist);
+
     this.setState({ results: selectedPlaylist && selectedPlaylist.fetched_tracks ? selectedPlaylist.fetched_tracks.map(track => track.track) : [] })
   }
 
@@ -135,7 +154,7 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
 
           <Input onChange={this.handleInputChange}
             action={<Dropdown onChange={this.handlePlaylistChange} button basic floating options={playlists.map(p => { return { key: p.id, text: p.name, value: p.id } }
-            ).concat({ key: 'all', text: 'All', value: 'all' })} defaultValue='all' />}
+            )} />}
             placeholder='Enter the lyrics...'
           />
         </Grid.Row>
@@ -148,7 +167,7 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
         <Item.Group divided>
           {results.map(track => {
             return <Item key={track.id}>
-              <Item.Image size="tiny" src={track.album.images.find(image => image.height === 64)!.url} />
+              <Item.Image size="tiny" src={track.album.images.find(image => image.height === 64) ? track.album.images.find(image => image.height === 64)!.url : 'musixmatch.png'} />
               <Item.Content>
                 <Item.Header>{track.name}</Item.Header>
                 <Item.Meta>
