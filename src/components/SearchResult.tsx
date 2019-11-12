@@ -38,6 +38,8 @@ type LyricsResponse = {
     body: {
       lyrics: {
         lyrics_body: string;
+        pixel_tracking_url: string;
+        lyrics_copyright: string;
       }
     }
   }
@@ -55,7 +57,9 @@ type Track = {
   external_urls: { spotify: string }
   name: string,
   album: {images: {height: number, url: string}[]},
-  lyrics?: string
+  lyrics?: string,
+  musixmatchUrl?: string,
+  copyright?: string,
 }
 
 type Playlist = {
@@ -168,18 +172,28 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
   private async fetchTracksWithLyrics(tracks: Track[]): Promise<Track[]>{
     let matchingTracks: Track[] = [];
     for(const track of tracks ){
-      const musixmatchTrack = await this.fetchMusixmatchTrack(track);
-      if(musixmatchTrack.message.body && musixmatchTrack.message.body.track_list && musixmatchTrack.message.body.track_list[0] && musixmatchTrack.message.body.track_list[0].track.has_lyrics){
-        const musixmatch_id=  musixmatchTrack.message.body.track_list[0].track.track_id;
-       if (musixmatch_id){
-          await axios.get(`${musixmatch_url}/track.lyrics.get?track_id=${musixmatch_id}&apikey=${musixmatch_api_key}`).then((response: AxiosResponse) => {
-          const lyricsResponse: LyricsResponse = response.data;
-          if(!this.state.lyrics || (this.state.lyrics && 
-           lyricsResponse.message.body.lyrics.lyrics_body.toLowerCase().indexOf(this.state.lyrics) > -1)){
-             track.lyrics = lyricsResponse.message.body.lyrics.lyrics_body;
-           matchingTracks.push(track);
+      if(track.lyrics){
+        if(!this.state.lyrics || (this.state.lyrics && 
+          track.lyrics.toLowerCase().indexOf(this.state.lyrics) > -1)){
+          matchingTracks.push(track);
+         }
+      }
+      else{
+        const musixmatchTrack = await this.fetchMusixmatchTrack(track);
+        if(musixmatchTrack.message.body && musixmatchTrack.message.body.track_list && musixmatchTrack.message.body.track_list[0] && musixmatchTrack.message.body.track_list[0].track.has_lyrics){
+          const musixmatch_id=  musixmatchTrack.message.body.track_list[0].track.track_id;
+         if (musixmatch_id){
+            await axios.get(`${musixmatch_url}/track.lyrics.get?track_id=${musixmatch_id}&apikey=${musixmatch_api_key}`).then((response: AxiosResponse) => {
+            const lyricsResponse: LyricsResponse = response.data;
+            track.lyrics = lyricsResponse.message.body.lyrics.lyrics_body;
+            track.musixmatchUrl = lyricsResponse.message.body.lyrics.pixel_tracking_url;
+            track.copyright = lyricsResponse.message.body.lyrics.lyrics_copyright;
+            if(!this.state.lyrics || (this.state.lyrics && 
+             lyricsResponse.message.body.lyrics.lyrics_body.toLowerCase().indexOf(this.state.lyrics) > -1)){
+               matchingTracks.push(track);
+            }
+              });
           }
-            });
         }
       }
     }
@@ -233,11 +247,17 @@ class SearchResult extends React.Component<OwnProps, OwnState>{
             return <Item key={track.id}>
               <Item.Image size="tiny" src={track.album.images.find(image => image.height === 64) ? track.album.images.find(image => image.height === 64)!.url : 'musixmatch.png'} />
               <Item.Content>
-                <Item.Header>{track.name}</Item.Header>
+                <Item.Header>{track.name}
+                {track.musixmatchUrl ? <img src={track.musixmatchUrl} alt="copyright" hidden/>: null}
+                </Item.Header>
                 <Item.Meta>
                   <span>{track.artists.map(artist => artist.name).join(', ')}</span>
                 </Item.Meta>
-                <Item.Description>{track.lyrics && track.lyrics.split ('\n').map ((item, i) => <p key={i}>{item}</p>)}</Item.Description>
+                <Item.Description>{track.lyrics && track.lyrics.split ('\n').map ((item, i) => <p key={i}>{item}</p>)}
+                <Item.Meta>
+               {track.copyright}
+                </Item.Meta>
+                </Item.Description>
                 <Item.Extra>
                    <Button primary floated='right' as='a' href={track.external_urls.spotify} target="_blank">
                     Listen on Spotify
